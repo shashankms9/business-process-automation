@@ -100,8 +100,8 @@ export default function Search(props) {
   }
 
   const onSearchResponse = async (response) => {
-    let results
-    let count = 0
+    let results;
+    let count = 0;
     if (response?.data?.results["@odata.count"]) {
       results = response.data.results.value
       count = response?.data?.results["@odata.count"]
