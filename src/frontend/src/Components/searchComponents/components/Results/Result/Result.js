@@ -114,7 +114,7 @@ export default function Result(props) {
                 </div>   
                 </>
             )
-        } else if(data?.filename.includes(".txt") && data?.filename.includes("-stage1")){
+        } else if(data?.filename && data.filename.includes(".txt") && data.filename.includes("-stage1")){
            
             const stringsplit = data?.filename.split('/')
             let result = ''
@@ -138,7 +138,7 @@ export default function Result(props) {
             return (
                 <>
                 <div>
-                    Original Document : <span onClick={onOriginalDoc} style={{ color: "blue" }}>{data.filename}</span>
+                    Original Document : <span onClick={onOriginalDoc} style={{ color: "blue" }}>{data?.filename || 'Unknown'}</span>
                 </div>   
                 </>
             )
@@ -147,7 +147,7 @@ export default function Result(props) {
     }
 
     const originalUrl = () => {
-        if(props.data.filename.includes(".txt") && props.data.filename.includes("-stage1")){
+        if(props.data?.filename && props.data.filename.includes(".txt") && props.data.filename.includes("-stage1")){
            
             const stringsplit = props.data?.filename.split('/')
             let result = ''
@@ -162,7 +162,7 @@ export default function Result(props) {
             
             return `/api/viewpdf?container=documents&filename=${citation}`
         } else{
-            return `/api/viewpdf?container=documents&filename=${props.data.filename}`
+            return `/api/viewpdf?container=documents&filename=${props.data?.filename || ''}`
         }
         
     }
