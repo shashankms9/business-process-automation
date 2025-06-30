@@ -40,15 +40,18 @@ export default function Search(props) {
   }
 
   const getFacetsString = (facets) => {
+    if (!facets || !Array.isArray(facets) || facets.length === 0) return "";
     let result = ""
     let index = 0
     for (const facet of facets) {
-      if (index === 0) {
-        result = facet
-      } else {
-        result += `, ${facet}`
+      if (facet && facet.trim() !== "") {
+        if (index === 0) {
+          result = facet
+        } else {
+          result += `, ${facet}`
+        }
+        index++
       }
-      index++
     }
     return result
   }
@@ -164,11 +167,17 @@ export default function Search(props) {
   useEffect(() => {
 
     setIsLoading(true);
-    // Compute skip locally to avoid stale state
     const localSkip = (currentPage - 1) * top;
 
-    // Defensive: Only proceed if props.index is defined and has required fields
-    if (!props.index || !props.index.searchableFields || !props.index.facetableFields) {
+    // Defensive: Only proceed if props.index and its fields are loaded and non-empty
+    if (
+      !props.index ||
+      !props.index.searchableFields ||
+      !Array.isArray(props.index.searchableFields) ||
+      props.index.searchableFields.length === 0 ||
+      !props.index.facetableFields ||
+      !Array.isArray(props.index.facetableFields)
+    ) {
       setIsLoading(false);
       setResults([]);
       setResultCount(0);
@@ -177,13 +186,24 @@ export default function Search(props) {
       return;
     }
 
+    // Debug: Log index and fields
+    console.log("Index object:", props.index);
+    console.log("Searchable fields:", props.index.searchableFields);
+    console.log("Facetable fields:", props.index.facetableFields);
+
+    const facetsString = getFacetsString(props.index.facetableFields);
+    const facetConfig = getFacetSearchConfig(facetsString.split(','));
+
+    // Debug: Log facets config
+    console.log("Facet config:", facetConfig);
+
     const body = {
       isVector: isVectorSearch(props.index),
       q: q,
       top: top,
       skip: localSkip,
       filters: filters,
-      facets: getFacetSearchConfig(getFacetsString(props.index.facetableFields).split(',')),
+      facets: facetConfig,
       index: props.index,
       useSemanticSearch: props.useSemanticSearch,
       semanticConfig: props.semanticConfig,
@@ -191,15 +211,34 @@ export default function Search(props) {
       filterCollections: props.index.collections
     }
 
-    setOpenAiAnswer([])
-    axios.post('/api/search', body)
-      .then(response => {
-        onSearchResponse(response)
-      })
-      .catch(error => {
-        console.log(error);
-        setIsLoading(false);
-      });
+    // Debug: Log search body
+    console.log("Search request body:", body);
+
+    setOpenAiAnswer([]);
+
+    // Only call API if query is not empty or filters are set, or if you want match-all
+    if ((q && q.trim().length > 0) || (filters && filters.length > 0) || true) {
+      axios.post('/api/search', body)
+        .then(response => {
+          if (!response || !response.data) {
+            setIsError(true);
+            setIsLoading(false);
+            setResults([]);
+            setResultCount(0);
+            return;
+          }
+          onSearchResponse(response)
+        })
+        .catch(error => {
+          console.log(error);
+          setIsError(true);
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
+      setResults([]);
+      setResultCount(0);
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, top, currentPage, filters, props.index, props.useSemanticSearch, props.semanticConfig, props]);
