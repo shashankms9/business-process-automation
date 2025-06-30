@@ -15,7 +15,7 @@ export default function Search(props) {
   const [results, setResults] = useState([]);
   const [resultCount, setResultCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [q, setQ] = useState("*");
+  const [q, setQ] = useState(""); // Use empty string for match-all
   const [top] = useState(10);
   const [skip, setSkip] = useState(0);
   const [filters, setFilters] = useState([]);
@@ -127,6 +127,9 @@ export default function Search(props) {
     setIsLoading(false)
     setIsError(false)
 
+    // Debug: Log results to help diagnose missing files
+    console.log("Search API results:", results);
+
     if (skip === 0 && props.useOpenAiAnswer && results.length > 0 && q.length > 1) {
 
       let maxIterations = 10
@@ -229,11 +232,37 @@ export default function Search(props) {
         Search Failed.  Make sure you have Semantic Search enabled.
       </div>);
   }
+  else if (results.length === 0) {
+    body = (
+      <div className="col-md-9" style={{ margin: "100px" }}>
+        No results found. Try a different search or check your index.
+      </div>
+    );
+  }
   else {
     body = (
       <div className="col-md-9">
-        <Results openAiAnswer={openAiAnswer} useTableSearch={props.useTableSearch} useOpenAiAnswer={props.useOpenAiAnswer} tableSearchConfig={props.tableSearchConfig} filterCollections={props.index.collections} answers={answers} facets={facets} searchables={props.index.searchableFields} documents={results} top={top} skip={skip} count={resultCount}></Results>
-        <Pager className="pager-style" currentPage={currentPage} resultCount={resultCount} resultsPerPage={resultsPerPage} setCurrentPage={updatePagination}></Pager>
+        <Results
+          openAiAnswer={openAiAnswer}
+          useTableSearch={props.useTableSearch}
+          useOpenAiAnswer={props.useOpenAiAnswer}
+          tableSearchConfig={props.tableSearchConfig}
+          filterCollections={props.index.collections}
+          answers={answers}
+          facets={facets}
+          searchables={props.index.searchableFields}
+          documents={results}
+          top={top}
+          skip={skip}
+          count={resultCount}
+        />
+        <Pager
+          className="pager-style"
+          currentPage={currentPage}
+          resultCount={resultCount}
+          resultsPerPage={resultsPerPage}
+          setCurrentPage={updatePagination}
+        />
       </div>
     )
   }
