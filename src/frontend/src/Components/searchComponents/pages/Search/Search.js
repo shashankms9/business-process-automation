@@ -103,35 +103,47 @@ export default function Search(props) {
   }
 
   const onSearchResponse = async (response) => {
-    let results
-    let count = 0
+    // Debug: Log the full API response
+    console.log("Full search API response:", response);
+
+    let results = [];
+    let count = 0;
+
+    // Try all possible response shapes
     if (response?.data?.results && response.data.results["@odata.count"]) {
-      results = response.data.results.value
-      count = response?.data?.results["@odata.count"]
-      if (response?.data?.results["@search.facets"]) {
+      results = response.data.results.value;
+      count = response.data.results["@odata.count"];
+      if (response.data.results["@search.facets"]) {
         setFacets(response.data.results["@search.facets"]);
       }
       if (response.data.results["@search.answers"]) {
         setAnswers(response.data.results["@search.answers"]);
       }
     } else if (response?.data?.results?.value) {
-      results = response.data.results.value
-      count = response.data.results.value.length
-      setAnswers([])
-      setFacets([])
+      results = response.data.results.value;
+      count = response.data.results.value.length;
+      setAnswers([]);
+      setFacets([]);
+    } else if (response?.data?.value && Array.isArray(response.data.value)) {
+      // Fallback: some APIs return results directly in data.value
+      results = response.data.value;
+      count = response.data.value.length;
+      setAnswers([]);
+      setFacets([]);
     } else {
-      results = []
-      count = 0
-      setAnswers([])
-      setFacets([])
+      results = [];
+      count = 0;
+      setAnswers([]);
+      setFacets([]);
     }
-    setResults(results)
-    setResultCount(count)
-    setIsLoading(false)
-    setIsError(false)
+
+    setResults(results);
+    setResultCount(count);
+    setIsLoading(false);
+    setIsError(false);
 
     // Debug: Log results to help diagnose missing files
-    console.log("Search API results:", results);
+    console.log("Parsed search results:", results);
 
     if (skip === 0 && props.useOpenAiAnswer && results.length > 0 && q.length > 1) {
 
@@ -191,15 +203,18 @@ export default function Search(props) {
     console.log("Searchable fields:", props.index.searchableFields);
     console.log("Facetable fields:", props.index.facetableFields);
 
+    // If query is empty, set to "*" for match-all (if backend expects this)
+    let searchQuery = q;
+    if (!searchQuery || searchQuery.trim() === "") {
+      searchQuery = "*";
+    }
+
     const facetsString = getFacetsString(props.index.facetableFields);
     const facetConfig = getFacetSearchConfig(facetsString.split(','));
 
-    // Debug: Log facets config
-    console.log("Facet config:", facetConfig);
-
     const body = {
       isVector: isVectorSearch(props.index),
-      q: q,
+      q: searchQuery,
       top: top,
       skip: localSkip,
       filters: filters,
@@ -216,29 +231,22 @@ export default function Search(props) {
 
     setOpenAiAnswer([]);
 
-    // Only call API if query is not empty or filters are set, or if you want match-all
-    if ((q && q.trim().length > 0) || (filters && filters.length > 0) || true) {
-      axios.post('/api/search', body)
-        .then(response => {
-          if (!response || !response.data) {
-            setIsError(true);
-            setIsLoading(false);
-            setResults([]);
-            setResultCount(0);
-            return;
-          }
-          onSearchResponse(response)
-        })
-        .catch(error => {
-          console.log(error);
+    axios.post('/api/search', body)
+      .then(response => {
+        if (!response || !response.data) {
           setIsError(true);
           setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-      setResults([]);
-      setResultCount(0);
-    }
+          setResults([]);
+          setResultCount(0);
+          return;
+        }
+        onSearchResponse(response)
+      })
+      .catch(error => {
+        console.log(error);
+        setIsError(true);
+        setIsLoading(false);
+      });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, top, currentPage, filters, props.index, props.useSemanticSearch, props.semanticConfig, props]);
