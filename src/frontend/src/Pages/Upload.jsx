@@ -103,6 +103,12 @@ function Upload(props) {
 
     const handleChange = async (file) => {
         try {
+            if (!selectedPipelineName) {
+                alert("Please select a pipeline before uploading a file.");
+                setShowFail(true);
+                return;
+            }
+            
             if (file.name) {
                 console.log(`image : ${file}`)
                 setImage(file.name);
@@ -110,12 +116,22 @@ function Upload(props) {
                 const body = new FormData();
                 body.append("file", file);
                 console.log("sending...")
+                console.log(`Selected pipeline: ${selectedPipelineName}`);
                 // Use the original filename directly instead of pipeline/filename format
                 const response = await fetch(`/api/documents?filename=${file.name}&pipeline=${selectedPipelineName}`, {
                     method: "POST",
                     body
                 });
-                setShow(true)
+                
+                if (response.ok) {
+                    setShow(true);
+                    setShowFail(false);
+                } else {
+                    const errorText = await response.text();
+                    console.error(`Upload failed: ${errorText}`);
+                    setShowFail(true);
+                    setShow(false);
+                }
                 console.log(` response ${JSON.stringify(response.body)}`)
             } else {
                 setShowFail(true)
@@ -123,6 +139,7 @@ function Upload(props) {
         } catch (err) {
             console.log(err)
             setShowFail(true)
+            setShow(false);
         }
     }
 
@@ -264,6 +281,18 @@ function Upload(props) {
                             onChange={onDropDownChange}
                             style={{ paddingBottom: "40px" }}
                         />
+                        {selectedPipelineName && (
+                            <Text content={`Selected Pipeline: ${selectedPipelineName}`} style={{ marginBottom: "20px", color: "green" }} />
+                        )}
+                        {!selectedPipelineName && (
+                            <Text content="Please select a pipeline before uploading files" style={{ marginBottom: "20px", color: "red" }} />
+                        )}
+                        {show && (
+                            <Text content="File uploaded successfully!" style={{ marginBottom: "20px", color: "green" }} />
+                        )}
+                        {showFail && (
+                            <Text content="File upload failed. Please try again." style={{ marginBottom: "20px", color: "red" }} />
+                        )}
                         <div style={{ display: "flex", flexDirection: "row" }}>
 
 
@@ -271,7 +300,7 @@ function Upload(props) {
                                 <div style={{ marginBottom: "10px" }}>
                                     <Text weight="semibold" content="Upload A Single Document" style={{ fontSize: "15px", width: "100%", marginBottom: "20px" }} />
                                 </div>
-                                <FileUploader handleChange={handleChange} name="file" types={fileTypes} />
+                                <FileUploader handleChange={handleChange} name="file" types={fileTypes} disabled={!selectedPipelineName} />
                             </div>
                         </div>
                         {/* <Text weight="semibold" content={getContent()} style={{ fontSize: "15px", display: "block", width: "100%", marginBottom: "20px", marginTop: "40px" }} /> */}
