@@ -164,12 +164,24 @@ export default function Search(props) {
   useEffect(() => {
 
     setIsLoading(true);
-    setSkip((currentPage - 1) * top);
+    // Compute skip locally to avoid stale state
+    const localSkip = (currentPage - 1) * top;
+
+    // Defensive: Only proceed if props.index is defined and has required fields
+    if (!props.index || !props.index.searchableFields || !props.index.facetableFields) {
+      setIsLoading(false);
+      setResults([]);
+      setResultCount(0);
+      setFacets([]);
+      setAnswers([]);
+      return;
+    }
+
     const body = {
       isVector: isVectorSearch(props.index),
       q: q,
       top: top,
-      skip: skip,
+      skip: localSkip,
       filters: filters,
       facets: getFacetSearchConfig(getFacetsString(props.index.facetableFields).split(',')),
       index: props.index,
@@ -180,19 +192,18 @@ export default function Search(props) {
     }
 
     setOpenAiAnswer([])
-    if (props.index) {
-      axios.post('/api/search', body)
-        .then(response => {
-          onSearchResponse(response)
-        })
-        .catch(error => {
-          console.log(error);
-          setIsLoading(false);
-        });
-    }
+    axios.post('/api/search', body)
+      .then(response => {
+        onSearchResponse(response)
+      })
+      .catch(error => {
+        console.log(error);
+        setIsLoading(false);
+      });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, top, skip, filters, currentPage, props.index, props.useSemanticSearch, props.semanticConfig, props]);
+  }, [q, top, currentPage, filters, props.index, props.useSemanticSearch, props.semanticConfig, props]);
+  // Removed skip from dependency array
 
 
   // pushing the new search term to history when q is updated
