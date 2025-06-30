@@ -265,7 +265,7 @@ function Upload(props) {
         }
         if (uploadError) {
             return (
-                <Text style={{ color: 'red', marginTop: '10px' }} content="Upload failed. Please try again." />
+                <Text style={{ color: 'red', marginTop: '10px' }} />
             );
         }
         return null;
