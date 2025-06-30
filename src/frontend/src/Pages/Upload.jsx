@@ -11,9 +11,6 @@ function Upload(props) {
     const [uploadedFileName, setUploadedFileName] = useState(null);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [uploadError, setUploadError] = useState(false);
-    const [image, setImage] = useState(null);
-    const [show, setShow] = useState(false);
-    const [showFail, setShowFail] = useState(false);
     const [pipelineNames, setPipelineNames] = useState([])
     const [selectedPipelineName, setSelectedPipelineName] = useState("")
     const [queueStatus, setQueueStatus] = useState(null)
