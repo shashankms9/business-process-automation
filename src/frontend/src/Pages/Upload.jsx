@@ -138,32 +138,33 @@ function Upload(props) {
     const tableCellStyle = { backgroundColor: "white", borderStyle: "solid", borderWidth: "1px", textAlign: "left" }
 
     const getQueuedFiles = () => {
-
         if (queueStatus?.messages?.queuedFiles) {
             console.log(JSON.stringify(queueStatus.messages))
             if (queueStatus.messages.queuedFiles.length > 0) {
                 return (
                     <table>
-                        <tr>
-                            <td style={tableCellStyle}>Filename</td>
-                            <td style={tableCellStyle}>State</td>
-                            <td style={tableCellStyle}>Is Async Transaction</td>
-                            <td style={tableCellStyle}>Pipeline</td>
-                            <td style={tableCellStyle}>Type</td>
-                            <td style={tableCellStyle}>Label</td>
-                        </tr>
-                        {queueStatus.messages.queuedFiles.map(f => {
-                            return (
-                                <tr>
-                                    <td style={tableCellStyle}>{f.filename}</td>
-                                    <td style={tableCellStyle}>{f.state ? f.state : "n/a"}</td>
-                                    <td style={tableCellStyle}>{f.isAsync ? f.isAsync.toString() : "n/a"}</td>
-                                    <td style={tableCellStyle}>{f.pipeline ? f.pipeline : "n/a"}</td>
-                                    <td style={tableCellStyle}>{f.type ? f.type : "n/a"}</td>
-                                    <td style={tableCellStyle}>{f.label ? f.label : "n/a"}</td>
-                                </tr>
-                            )
-                        })}
+                        <tbody>
+                            <tr>
+                                <td style={tableCellStyle}>Filename</td>
+                                <td style={tableCellStyle}>State</td>
+                                <td style={tableCellStyle}>Is Async Transaction</td>
+                                <td style={tableCellStyle}>Pipeline</td>
+                                <td style={tableCellStyle}>Type</td>
+                                <td style={tableCellStyle}>Label</td>
+                            </tr>
+                            {queueStatus.messages.queuedFiles.map((f, index) => {
+                                return (
+                                    <tr key={index}>
+                                        <td style={tableCellStyle}>{f.filename}</td>
+                                        <td style={tableCellStyle}>{f.state ? f.state : "n/a"}</td>
+                                        <td style={tableCellStyle}>{f.isAsync ? f.isAsync.toString() : "n/a"}</td>
+                                        <td style={tableCellStyle}>{f.pipeline ? f.pipeline : "n/a"}</td>
+                                        <td style={tableCellStyle}>{f.type ? f.type : "n/a"}</td>
+                                        <td style={tableCellStyle}>{f.label ? f.label : "n/a"}</td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
                     </table>
                 )
             }
@@ -176,22 +177,22 @@ function Upload(props) {
                 <>
                     <Text weight="semibold" content="Request Queue" style={{ fontSize: "15px", display: "block", width: "100%", marginBottom: "20px", marginTop: "40px" }} />
                     <table style={{ marginBottom: "30px" }}>
-                        <tr>
-                            <td style={tableCellStyle}>Active</td>
-                            <td style={tableCellStyle}>Scheduled</td>
-                            <td style={tableCellStyle}>Failed</td>
-                        </tr>
-                        <tr>
-                            <td style={tableCellStyle}>{queueStatus.messages.queueProperties.activeMessageCount}</td>
-                            <td style={tableCellStyle}>{queueStatus.messages.queueProperties.scheduledMessageCount}</td>
-                            <td style={tableCellStyle}>{queueStatus.messages.queueProperties.deadLetterMessageCount}</td>
-                        </tr>
-
+                        <tbody>
+                            <tr>
+                                <td style={tableCellStyle}>Active</td>
+                                <td style={tableCellStyle}>Scheduled</td>
+                                <td style={tableCellStyle}>Failed</td>
+                            </tr>
+                            <tr>
+                                <td style={tableCellStyle}>{queueStatus.messages.queueProperties.activeMessageCount}</td>
+                                <td style={tableCellStyle}>{queueStatus.messages.queueProperties.scheduledMessageCount}</td>
+                                <td style={tableCellStyle}>{queueStatus.messages.queueProperties.deadLetterMessageCount}</td>
+                            </tr>
+                        </tbody>
                     </table>
                 </>
             )
         }
-
     }
 
     const getIndexerStatusError = () => {
