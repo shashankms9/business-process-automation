@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { FileUploader } from "react-drag-drop-files";
 import { Text, Dropdown, Button } from '@fluentui/react-northstar';
 import axios from 'axios'
-import { v4 as uuidv4 } from 'uuid';
 
 const pipelinesLabel = "pipelines"
 
