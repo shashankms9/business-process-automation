@@ -8,6 +8,9 @@ const pipelinesLabel = "pipelines"
 function Upload(props) {
     const fileTypes = ["JSON","PNG", "JPG", "PDF", "BMP", "WAV", "MP3", "JPEG", "TIFF", "XML", "MP4", "TIF", "PPT", "TXT", "DOC", "DOCX", "PPTX"];
 
+    const [uploadedFileName, setUploadedFileName] = useState(null);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [uploadError, setUploadError] = useState(false);
     const [image, setImage] = useState(null);
     const [show, setShow] = useState(false);
     const [showFail, setShowFail] = useState(false);
@@ -103,6 +106,10 @@ function Upload(props) {
 
     const handleChange = async (file) => {
         try {
+            // Reset previous states
+            setUploadSuccess(false);
+            setUploadError(false);
+            
             if (file.name) {
                 console.log(`Uploading file: ${file.name}`)
                 const body = new FormData();
@@ -120,18 +127,18 @@ function Upload(props) {
                     
                     // Set the actual stored filename from response, fallback to original name
                     const storedFileName = responseData?.storedFileName || responseData?.filename || file.name;
-                    setImage(storedFileName);
-                    setShow(true);
+                    setUploadedFileName(storedFileName);
+                    setUploadSuccess(true);
                 } else {
                     console.error('Upload failed:', response.statusText);
-                    setShowFail(true);
+                    setUploadError(true);
                 }
             } else {
-                setShowFail(true);
+                setUploadError(true);
             }
         } catch (err) {
             console.log('Upload error:', err);
-            setShowFail(true);
+            setUploadError(true);
         }
     }
 
@@ -253,6 +260,20 @@ function Upload(props) {
         }
     }
 
+    const getUploadStatus = () => {
+        if (uploadSuccess && uploadedFileName) {
+            return (
+                <Text style={{ color: 'green', marginTop: '10px' }} content={`File uploaded successfully: ${uploadedFileName}`} />
+            );
+        }
+        if (uploadError) {
+            return (
+                <Text style={{ color: 'red', marginTop: '10px' }} content="Upload failed. Please try again." />
+            );
+        }
+        return null;
+    }
+
     return (
 
 
@@ -282,6 +303,7 @@ function Upload(props) {
                                     <Text weight="semibold" content="Upload A Single Document" style={{ fontSize: "15px", width: "100%", marginBottom: "20px" }} />
                                 </div>
                                 <FileUploader handleChange={handleChange} name="file" types={fileTypes} />
+                                {getUploadStatus()}
                             </div>
                         </div>
                         {/* <Text weight="semibold" content={getContent()} style={{ fontSize: "15px", display: "block", width: "100%", marginBottom: "20px", marginTop: "40px" }} /> */}
