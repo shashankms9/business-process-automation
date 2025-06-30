@@ -102,7 +102,7 @@ export default function Search(props) {
   const onSearchResponse = async (response) => {
     let results
     let count = 0
-    if (response?.data?.results["@odata.count"]) {
+    if (response?.data?.results && response.data.results["@odata.count"]) {
       results = response.data.results.value
       count = response?.data?.results["@odata.count"]
       if (response?.data?.results["@search.facets"]) {
@@ -111,7 +111,7 @@ export default function Search(props) {
       if (response.data.results["@search.answers"]) {
         setAnswers(response.data.results["@search.answers"]);
       }
-    } else if (response?.data?.results.value) {
+    } else if (response?.data?.results?.value) {
       results = response.data.results.value
       count = response.data.results.value.length
       setAnswers([])

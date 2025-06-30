@@ -110,7 +110,8 @@ function Upload(props) {
                 const body = new FormData();
                 body.append("file", file);
                 console.log("sending...")
-                const response = await fetch(`/api/documents?filename=${selectedPipelineName}/${file.name}&pipeline=${selectedPipelineName}`, {
+                // Use the original filename directly instead of pipeline/filename format
+                const response = await fetch(`/api/documents?filename=${file.name}&pipeline=${selectedPipelineName}`, {
                     method: "POST",
                     body
                 });
@@ -212,6 +213,7 @@ function Upload(props) {
         if (indexers && selectedIndexer?.name) {
             return (
                 <>
+
 
                     <div style={{ marginBottom: "10px" }}>
                         <Text weight="semibold" content="Select An Indexer" style={{ fontSize: "15px", width: "100%", marginBottom: "20px" }} />
