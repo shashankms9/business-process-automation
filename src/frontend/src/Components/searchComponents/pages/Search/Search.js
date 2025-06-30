@@ -15,7 +15,7 @@ export default function Search(props) {
   const [results, setResults] = useState([]);
   const [resultCount, setResultCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [q, setQ] = useState(""); // Use empty string for match-all
+  const [q, setQ] = useState("*");
   const [top] = useState(10);
   const [skip, setSkip] = useState(0);
   const [filters, setFilters] = useState([]);
@@ -40,18 +40,15 @@ export default function Search(props) {
   }
 
   const getFacetsString = (facets) => {
-    if (!facets || !Array.isArray(facets) || facets.length === 0) return "";
     let result = ""
     let index = 0
     for (const facet of facets) {
-      if (facet && facet.trim() !== "") {
-        if (index === 0) {
-          result = facet
-        } else {
-          result += `, ${facet}`
-        }
-        index++
+      if (index === 0) {
+        result = facet
+      } else {
+        result += `, ${facet}`
       }
+      index++
     }
     return result
   }
@@ -103,47 +100,32 @@ export default function Search(props) {
   }
 
   const onSearchResponse = async (response) => {
-    // Debug: Log the full API response
-    console.log("Full search API response:", response);
-
-    let results = [];
-    let count = 0;
-
-    // Try all possible response shapes
-    if (response?.data?.results && response.data.results["@odata.count"]) {
-      results = response.data.results.value;
-      count = response.data.results["@odata.count"];
-      if (response.data.results["@search.facets"]) {
+    let results
+    let count = 0
+    if (response?.data?.results["@odata.count"]) {
+      results = response.data.results.value
+      count = response?.data?.results["@odata.count"]
+      if (response?.data?.results["@search.facets"]) {
         setFacets(response.data.results["@search.facets"]);
       }
       if (response.data.results["@search.answers"]) {
         setAnswers(response.data.results["@search.answers"]);
       }
-    } else if (response?.data?.results?.value) {
-      results = response.data.results.value;
-      count = response.data.results.value.length;
-      setAnswers([]);
-      setFacets([]);
-    } else if (response?.data?.value && Array.isArray(response.data.value)) {
-      // Fallback: some APIs return results directly in data.value
-      results = response.data.value;
-      count = response.data.value.length;
-      setAnswers([]);
-      setFacets([]);
+    } else if (response?.data?.results.value) {
+      results = response.data.results.value
+      count = response.data.results.value.length
+      setAnswers([])
+      setFacets([])
     } else {
-      results = [];
-      count = 0;
-      setAnswers([]);
-      setFacets([]);
+      results = []
+      count = 0
+      setAnswers([])
+      setFacets([])
     }
-
-    setResults(results);
-    setResultCount(count);
-    setIsLoading(false);
-    setIsError(false);
-
-    // Debug: Log results to help diagnose missing files
-    console.log("Parsed search results:", results);
+    setResults(results)
+    setResultCount(count)
+    setIsLoading(false)
+    setIsError(false)
 
     if (skip === 0 && props.useOpenAiAnswer && results.length > 0 && q.length > 1) {
 
@@ -179,46 +161,14 @@ export default function Search(props) {
   useEffect(() => {
 
     setIsLoading(true);
-    const localSkip = (currentPage - 1) * top;
-
-    // Defensive: Only proceed if props.index and its fields are loaded and non-empty
-    if (
-      !props.index ||
-      !props.index.searchableFields ||
-      !Array.isArray(props.index.searchableFields) ||
-      props.index.searchableFields.length === 0 ||
-      !props.index.facetableFields ||
-      !Array.isArray(props.index.facetableFields)
-    ) {
-      setIsLoading(false);
-      setResults([]);
-      setResultCount(0);
-      setFacets([]);
-      setAnswers([]);
-      return;
-    }
-
-    // Debug: Log index and fields
-    console.log("Index object:", props.index);
-    console.log("Searchable fields:", props.index.searchableFields);
-    console.log("Facetable fields:", props.index.facetableFields);
-
-    // If query is empty, set to "*" for match-all (if backend expects this)
-    let searchQuery = q;
-    if (!searchQuery || searchQuery.trim() === "") {
-      searchQuery = "*";
-    }
-
-    const facetsString = getFacetsString(props.index.facetableFields);
-    const facetConfig = getFacetSearchConfig(facetsString.split(','));
-
+    setSkip((currentPage - 1) * top);
     const body = {
       isVector: isVectorSearch(props.index),
-      q: searchQuery,
+      q: q,
       top: top,
-      skip: localSkip,
+      skip: skip,
       filters: filters,
-      facets: facetConfig,
+      facets: getFacetSearchConfig(getFacetsString(props.index.facetableFields).split(',')),
       index: props.index,
       useSemanticSearch: props.useSemanticSearch,
       semanticConfig: props.semanticConfig,
@@ -226,31 +176,20 @@ export default function Search(props) {
       filterCollections: props.index.collections
     }
 
-    // Debug: Log search body
-    console.log("Search request body:", body);
-
-    setOpenAiAnswer([]);
-
-    axios.post('/api/search', body)
-      .then(response => {
-        if (!response || !response.data) {
-          setIsError(true);
+    setOpenAiAnswer([])
+    if (props.index) {
+      axios.post('/api/search', body)
+        .then(response => {
+          onSearchResponse(response)
+        })
+        .catch(error => {
+          console.log(error);
           setIsLoading(false);
-          setResults([]);
-          setResultCount(0);
-          return;
-        }
-        onSearchResponse(response)
-      })
-      .catch(error => {
-        console.log(error);
-        setIsError(true);
-        setIsLoading(false);
-      });
+        });
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, top, currentPage, filters, props.index, props.useSemanticSearch, props.semanticConfig, props]);
-  // Removed skip from dependency array
+  }, [q, top, skip, filters, currentPage, props.index, props.useSemanticSearch, props.semanticConfig, props]);
 
 
   // pushing the new search term to history when q is updated
@@ -290,37 +229,11 @@ export default function Search(props) {
         Search Failed.  Make sure you have Semantic Search enabled.
       </div>);
   }
-  else if (results.length === 0) {
-    body = (
-      <div className="col-md-9" style={{ margin: "100px" }}>
-        No results found. Try a different search or check your index.
-      </div>
-    );
-  }
   else {
     body = (
       <div className="col-md-9">
-        <Results
-          openAiAnswer={openAiAnswer}
-          useTableSearch={props.useTableSearch}
-          useOpenAiAnswer={props.useOpenAiAnswer}
-          tableSearchConfig={props.tableSearchConfig}
-          filterCollections={props.index.collections}
-          answers={answers}
-          facets={facets}
-          searchables={props.index.searchableFields}
-          documents={results}
-          top={top}
-          skip={skip}
-          count={resultCount}
-        />
-        <Pager
-          className="pager-style"
-          currentPage={currentPage}
-          resultCount={resultCount}
-          resultsPerPage={resultsPerPage}
-          setCurrentPage={updatePagination}
-        />
+        <Results openAiAnswer={openAiAnswer} useTableSearch={props.useTableSearch} useOpenAiAnswer={props.useOpenAiAnswer} tableSearchConfig={props.tableSearchConfig} filterCollections={props.index.collections} answers={answers} facets={facets} searchables={props.index.searchableFields} documents={results} top={top} skip={skip} count={resultCount}></Results>
+        <Pager className="pager-style" currentPage={currentPage} resultCount={resultCount} resultsPerPage={resultsPerPage} setCurrentPage={updatePagination}></Pager>
       </div>
     )
   }
