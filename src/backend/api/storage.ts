@@ -52,4 +52,18 @@ export class BlobStorage {
         const blobClient: BlockBlobClient = this._blobContainerClient.getBlockBlobClient(filename)
         await blobClient.deleteIfExists()
     }
+
+    private getCleanFilename(filename: string): string {
+        // Remove path if present
+        const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'))
+        if (pathSeparatorIndex >= 0) {
+            filename = filename.substring(pathSeparatorIndex + 1)
+        }
+        
+        // Remove file extension but keep original name readable
+        const baseFilename = filename.replace(/\.[^/.]+$/, "")
+        
+        // Only replace problematic characters for storage
+        return baseFilename.replace(/[<>:"/\\|?*]/g, '_')
+    }
 }

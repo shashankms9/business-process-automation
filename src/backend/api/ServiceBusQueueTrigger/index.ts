@@ -20,31 +20,41 @@ const getFileDirNames = (mySbMsg) => {
 
 const serviceBusQueue: AzureFunction = async function (context: Context, mySbMsg: any): Promise<void> {
     const mq = new ServiceBusMQ()
-    const db = new BlobDB(process.env.AzureWebJobsStorage,"db", process.env.BLOB_STORAGE_CONTAINER)
-    try{
-        if(!mySbMsg?.subject){
+    const db = new BlobDB(process.env.AzureWebJobsStorage, "db", process.env.BLOB_STORAGE_CONTAINER)
+    try {
+        if (!mySbMsg?.subject) {
             const data = await db.getByID(mySbMsg.id, mySbMsg.pipeline)
             mySbMsg = data
-            const resultsBlob : BlobStorage = new BlobStorage(process.env.AzureWebJobsStorage, 'documents')
+            const resultsBlob: BlobStorage = new BlobStorage(process.env.AzureWebJobsStorage, 'documents')
             mySbMsg.aggregatedResults.buffer = await resultsBlob.getBuffer(mySbMsg.filename)
         }
-        
+
+        // Enforce filename-based ID generation
+        if (!mySbMsg.id && mySbMsg.filename) {
+            let filename = mySbMsg.filename
+            const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'))
+            if (pathSeparatorIndex >= 0) {
+                filename = filename.substring(pathSeparatorIndex + 1)
+            }
+            mySbMsg.id = filename.replace(/\.[^/.]+$/, "").replace(/[<>:"/\\|?*]/g, '_')
+            context.log(`Generated ID from filename: ${mySbMsg.id}`)
+        }
+
         context.log("Entering mqTrigger")
         await mqTrigger(context, mySbMsg, mq, db)
-    } catch(err){
+    } catch (err) {
         const names = getFileDirNames(mySbMsg)
-        await db. createError(
+        await db.createError(
             {
-                filename : names.filename,
-                error : err.toString(),
-                request : JSON.stringify(mySbMsg),
-                pipeline : names.directoryName
+                filename: names.filename,
+                error: err.toString(),
+                request: JSON.stringify(mySbMsg),
+                pipeline: names.directoryName
             }
         )
 
         throw err
     }
-    
 };
 
 export default serviceBusQueue;

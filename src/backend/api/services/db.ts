@@ -38,60 +38,125 @@ export class BlobDB extends DB {
         this._resultsClient = new BlobStorage(connectionString, 'results')
     }
 
+    private generateUniqueId = async (data: any): Promise<string> => {
+        console.log(`generateUniqueId called with data:`, JSON.stringify({
+            id: data.id,
+            filename: data.filename,
+            pipeline: data.pipeline,
+            hasFilename: !!data.filename,
+            allKeys: Object.keys(data)
+        }))
+        
+        if (data.id) {
+            console.log(`Using existing ID: ${data.id}`)
+            return data.id
+        }
+        
+        // Try multiple sources for filename
+        let filename = data.filename || data.fileName || data.name
+        
+        if (filename) {
+            // Extract just the filename without path and extension
+            
+            // Remove path if present (handle both / and \ separators)
+            const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'))
+            if (pathSeparatorIndex >= 0) {
+                filename = filename.substring(pathSeparatorIndex + 1)
+            }
+            
+            // Remove file extension but keep the original name structure
+            let baseId = filename.replace(/\.[^/.]+$/, "")
+            
+            // Only replace problematic characters, keep original name readable
+            baseId = baseId.replace(/[<>:"/\\|?*]/g, '_')
+            
+            console.log(`Using filename-based ID: ${baseId}`)
+            return baseId
+        }
+        
+        console.log(`No filename found, using UUID`)
+        return uuidv4()
+    }
+
     public connect = async () => {
         //await this._client.connect()
     }
 
-    public createError = async (data: any): Promise<any> => {
-        
-        if(data?.aggregatedResults?.buffer){
-            delete data.aggregatedResults.buffer
+    private getFilenameBasedId = (data: any): string => {
+        if (!data.filename) {
+            throw new Error("Filename is required for ID generation");
         }
         
-        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), `error/${data.pipeline}/${data.filename}_${new Date().getTime()}.json`)
-
-        return data
+        let filename = data.filename;
+        
+        // Remove path if present (handle both / and \ separators)
+        const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+        if (pathSeparatorIndex >= 0) {
+            filename = filename.substring(pathSeparatorIndex + 1);
+        }
+        
+        // Remove file extension but keep original name readable
+        const baseId = filename.replace(/\.[^/.]+$/, "");
+        
+        // Only replace problematic characters for storage
+        return baseId.replace(/[<>:"/\\|?*]/g, '_');
     }
 
     public create = async (data: any): Promise<any> => {
-
-        let id : string
-        if(data.id){
-            id = data.id
-        } else{
-            id = uuidv4()
-            data.id = id
-        }
+        // Always use filename-based ID generation
+        const id = this.getFilenameBasedId(data);
+        data.id = id;
         
-        if(data?.aggregatedResults?.buffer){
-            delete data.aggregatedResults.buffer
-        }
+        console.log(`BlobDB storing with filename-based ID: ${id}, original filename: ${data.filename}`);
         
-        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), `${data.pipeline}/${id}.json`)
+        // Store with pipeline prefix to maintain organization
+        const storagePath = data.pipeline ? `${data.pipeline}/${id}.json` : `${id}.json`;
+        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), storagePath);
 
-        return data
+        return data;
     }
 
-    // public view = async (input: any): Promise<BpaServiceObject> => {
+    public createError = async (data: any): Promise<any> => {
+        if(data?.aggregatedResults?.buffer){
+            delete data.aggregatedResults.buffer;
+        }
+        
+        // Use filename-based ID for error files too
+        const baseId = data.filename ? this.getFilenameBasedId(data) : `error_${new Date().getTime()}`;
+        const errorFileName = `${baseId}_error.json`;
+        
+        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), `error/${data.pipeline}/${errorFileName}`);
 
-    //     let id : string
-    //     if(input.id){
-    //         id = input.id
-    //     } else{
-    //         id = uuidv4()
-    //     }
-    //     await this._resultsClient.upload(Buffer.from(JSON.stringify(input)), `${input.pipeline}/${id}.json`)
-
-    //     return input
-    // }
+        return data;
+    }
 
     public getConfig = async (): Promise<BpaPipelines> => {
 
         return JSON.parse((await this._configClient.getBuffer('pipelines.json')).toString())
     }
     public getByID = async (id: string, pipeline: string): Promise<any> => {
-        return JSON.parse((await this._resultsClient.getBuffer(`${pipeline}/${id}.json`)).toString())
+        const filePath = pipeline ? `${pipeline}/${id}.json` : `${id}.json`;
+        return JSON.parse((await this._resultsClient.getBuffer(filePath)).toString())
     }
+    
+    public getByOriginalFilename = async (filename: string, pipeline: string): Promise<any> => {
+        const id = this.getFilenameBasedId({ filename });
+        const filePath = `${pipeline}/${id}.json`;
+        return JSON.parse((await this._resultsClient.getBuffer(filePath)).toString())
+    }
+
+    public getByFilename = async (filename: string): Promise<any> => {
+        // For backward compatibility, try to get file by original filename structure
+        try {
+            return JSON.parse((await this._resultsClient.getBuffer(filename)).toString())
+        } catch (error) {
+            // If not found, try with the new filename-based structure
+            const id = filename.replace(/\.[^/.]+$/, "")
+            const pipeline = filename.split('/')[0] // Assuming pipeline is the first part of the path
+            return JSON.parse((await this._resultsClient.getBuffer(`${pipeline}/${id}.json`)).toString())
+        }
+    }
+    
     public deleteByID = async (id: string): Promise<any> => {
         this._resultsClient.delete(id)
         return null
@@ -118,7 +183,29 @@ export class Redis extends DB {
     }
 
     public create = async (data: any): Promise<any> => {
-        const out = await this._client.set(uuidv4(), data)
+        let id: string
+        if (data.id) {
+            id = data.id
+        } else if (data.filename) {
+            // Use original filename without extension for Redis too
+            let filename = data.filename
+            
+            // Remove path if present
+            const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'))
+            if (pathSeparatorIndex >= 0) {
+                filename = filename.substring(pathSeparatorIndex + 1)
+            }
+            
+            // Remove file extension and sanitize
+            id = filename.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, '_')
+            data.id = id
+        } else {
+            id = uuidv4()
+            data.id = id
+        }
+        
+        console.log(`Redis storing with ID: ${id}, original filename: ${data.filename}`)
+        const out = await this._client.set(id, data)
 
         return
     }

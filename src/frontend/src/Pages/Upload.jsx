@@ -102,39 +102,31 @@ function Upload(props) {
     }
 
     const handleChange = async (file) => {
+        setUploadedFileName(file.name);
+        setUploadSuccess(false);
+        setUploadError(false);
+        
+        // Clean the filename for consistent processing
+        let cleanFilename = file.name;
+        // Remove problematic characters but keep the original name structure
+        cleanFilename = cleanFilename.replace(/[<>:"/\\|?*]/g, '_');
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
         try {
-            // Reset previous states
-            setUploadSuccess(false);
-            setUploadError(false);
+            const response = await axios.post(`/api/documents?filename=${encodeURIComponent(cleanFilename)}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
             
-            if (file.name) {
-                console.log(`Uploading file: ${file.name}`)
-                const body = new FormData();
-                body.append("file", file);
-                console.log("Sending file to server...")
-                
-                const response = await fetch(`/api/documents?filename=${selectedPipelineName}/${file.name}&pipeline=${selectedPipelineName}`, {
-                    method: "POST",
-                    body
-                });
-                
-                if (response.ok) {
-                    const responseData = await response.json();
-                    console.log('Upload response:', responseData);
-                    
-                    // Set the actual stored filename from response, fallback to original name
-                    const storedFileName = responseData?.storedFileName || responseData?.filename || file.name;
-                    setUploadedFileName(storedFileName);
-                    setUploadSuccess(true);
-                } else {
-                    console.error('Upload failed:', response.statusText);
-                    setUploadError(true);
-                }
-            } else {
-                setUploadError(true);
+            if (response.status === 200) {
+                setUploadSuccess(true);
+                console.log(`File uploaded successfully as: ${cleanFilename}`);
             }
-        } catch (err) {
-            console.log('Upload error:', err);
+        } catch (error) {
+            console.error('Upload failed:', error);
             setUploadError(true);
         }
     }

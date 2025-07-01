@@ -150,8 +150,26 @@ export class BlobStorage extends Storage {
         return await this._splicePdf(myBlob, from, to)
     }
 
+    private getCleanFilename(filename: string): string {
+        // Remove path if present
+        const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'))
+        if (pathSeparatorIndex >= 0) {
+            filename = filename.substring(pathSeparatorIndex + 1)
+        }
+        
+        // Remove file extension but keep original name readable
+        const baseFilename = filename.replace(/\.[^/.]+$/, "")
+        
+        // Only replace problematic characters for storage
+        return baseFilename.replace(/[<>:"/\\|?*]/g, '_')
+    }
+
     public upload = async (myBlob: Buffer, filename: string): Promise<void> => {
-        const blobClient: BlockBlobClient = this._blobContainerClient.getBlockBlobClient(filename)
+        // Use clean filename for storage
+        const cleanFilename = this.getCleanFilename(filename)
+        console.log(`STORAGE: Uploading with clean filename: ${cleanFilename} (original: ${filename})`)
+        
+        const blobClient: BlockBlobClient = this._blobContainerClient.getBlockBlobClient(cleanFilename)
         const uploadBlobResponse: BlockBlobUploadResponse = await blobClient.upload(myBlob, myBlob.length)
         console.log(`uploadResponse : ${JSON.stringify(uploadBlobResponse)}`)
     }
@@ -201,13 +219,22 @@ export class LocalStorage extends Storage {
 
     }
 
+    private sanitizeFilename = (filename: string): string => {
+        const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+        if (pathSeparatorIndex >= 0) {
+            filename = filename.substring(pathSeparatorIndex + 1);
+        }
+        return filename.replace(/[<>:"/\\|?*]/g, '_');
+    };
+
     public split = async (myBlob: Buffer, filename: string, directoryName: string): Promise<void> => {
-        const pages: Buffer[] = await this._splitPdf(myBlob)
-        let index = 0
+        const sanitizedFilename = this.sanitizeFilename(filename);
+        const pages: Buffer[] = await this._splitPdf(myBlob);
+        let index = 0;
         for (const page of pages) {
-            const newFilename = `${filename.replace(".pdf", `_${index}`)}.pdf`
-            await writeFile(p.join(directoryName, newFilename), page)
-            index++
+            const newFilename = `${sanitizedFilename.replace(".pdf", `_${index}`)}.pdf`;
+            await writeFile(p.join(directoryName, newFilename), page);
+            index++;
         }
     }
 

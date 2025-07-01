@@ -17,19 +17,13 @@ export class SpliceDocument {
         
         const label = "pdf"
         const results = input.aggregatedResults
-        //results[label] = splicedDocument
         input.resultsIndexes.push({ index: index, name: label, type: "pdf" })
+
         return {
+            ...input,
             data: splicedDocument,
             type: label,
-            filename: input.filename,
-            pipeline: input.pipeline,
-            bpaId: input.bpaId,
-            label: label,
-            aggregatedResults: results,
-            resultsIndexes: input.resultsIndexes,
-            id: input.id,
-            vector: input.vector
+            label: label
         }
     }
 }

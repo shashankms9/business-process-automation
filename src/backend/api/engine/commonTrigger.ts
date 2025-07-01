@@ -116,16 +116,34 @@ const getStages = async (mySbMsg, context, db) => {
 }
 
 const pushToRedis = async (out, db) => {
-    delete out.data
-    const newObject = await db.create(out)
-    if (newObject?.id && (process.env.STORE_IN_REDIS === 'true') && newObject?.aggregatedResults?.openaiEmbeddings) {
-        await redis.set(newObject.id, newObject, newObject.aggregatedResults.openaiEmbeddings.data[0].embedding)
+    console.log(`PUSH_TO_REDIS: Processing - ID: ${out.id}, filename: ${out.filename}`);
+
+    // Ensure we have a filename-based ID
+    if (!out.id && out.filename) {
+        let filename = out.filename;
+        const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+        if (pathSeparatorIndex >= 0) {
+            filename = filename.substring(pathSeparatorIndex + 1);
+        }
+        out.id = filename.replace(/\.[^/.]+$/, "").replace(/[<>:"/\\|?*]/g, '_');
+        console.log(`PUSH_TO_REDIS: Generated ID from filename: ${out.id}`);
     }
-}
+
+    delete out.data;
+
+    console.log(`PUSH_TO_REDIS: About to create with filename-based ID: ${out.id}`);
+    const newObject = await db.create(out);
+    console.log(`PUSH_TO_REDIS: Successfully stored with ID: ${newObject.id}`);
+
+    if (newObject?.id && (process.env.STORE_IN_REDIS === 'true') && newObject?.aggregatedResults?.openaiEmbeddings) {
+        await redis.set(newObject.id, newObject, newObject.aggregatedResults.openaiEmbeddings.data[0].embedding);
+    }
+};
 
 const processSyncRequests = async (mySbMsg, stages, mq, db) => {
     const engine = new BpaEngine()
     let out: any
+    
     if (mySbMsg?.index) {
         out = await engine.processAsync(mySbMsg, mySbMsg.index, stages.bpaConfig, mq, db)
     } else {
@@ -137,6 +155,19 @@ const processSyncRequests = async (mySbMsg, stages, mq, db) => {
         }
         const myBuffer = await blob.getBuffer(stages.filename)
         out = await engine.processFile(blob, myBuffer, stages.filename, stages.bpaConfig, mq, db)
+    }
+
+    console.log(`PROCESS_SYNC: Completed processing - ID: ${out.id}, filename: ${out.filename}`);
+
+    // Ensure we have a filename-based ID
+    if (!out.id && out.filename) {
+        let cleanFileName = out.filename;
+        const pathSeparatorIndex = Math.max(out.filename.lastIndexOf('/'), out.filename.lastIndexOf('\\'));
+        if (pathSeparatorIndex >= 0) {
+            cleanFileName = out.filename.substring(pathSeparatorIndex + 1);
+        }
+        out.id = cleanFileName.replace(/\.[^/.]+$/, "").replace(/[<>:"/\\|?*]/g, '_');
+        console.log(`PROCESS_SYNC: Generated filename-based ID: ${out.id}`);
     }
 
     return out

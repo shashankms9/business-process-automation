@@ -129,18 +129,42 @@ export class BlobDB extends DB {
     }
 
     public create = async (data: any): Promise<any> => {
-
-        let id : string
-        if(data.id){
-            id = data.id
-        } else{
-            id = uuidv4()
-            data.id = id
+        let id: string;
+        
+        // Always prioritize filename-based ID generation
+        if (data.filename) {
+            // Extract just the filename without path and extension
+            let filename = data.filename;
+            
+            // Remove path if present (handle both / and \ separators)
+            const pathSeparatorIndex = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+            if (pathSeparatorIndex >= 0) {
+                filename = filename.substring(pathSeparatorIndex + 1);
+            }
+            
+            // Remove file extension but keep original name readable
+            id = filename.replace(/\.[^/.]+$/, "");
+            
+            // Only replace problematic characters for storage
+            id = id.replace(/[<>:"/\\|?*]/g, '_');
+            
+            data.id = id;
+            console.log(`Main BlobDB storing with filename-based ID: ${id}, original filename: ${data.filename}`);
+        } else if (data.id) {
+            id = data.id;
+            console.log(`Main BlobDB using existing ID: ${id}`);
+        } else {
+            // Only use UUID as last resort
+            id = uuidv4();
+            data.id = id;
+            console.log(`Main BlobDB using UUID (no filename): ${id}`);
         }
         
-        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), `${id}.json`)
+        // Store with the ID as filename
+        const storagePath = `${id}.json`;
+        await this._resultsClient.upload(Buffer.from(JSON.stringify(data)), storagePath);
 
-        return data
+        return data;
     }
 
     public setConfig = async (data: any): Promise<any> => {
